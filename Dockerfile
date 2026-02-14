@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir yt-dlp flask gunicorn
 
 # Copier le serveur
 COPY server.py /app/server.py
+COPY cookies.txt /app/cookies.txt
 
 # Exposer le port (informatif pour Docker)
 EXPOSE 8080
