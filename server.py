@@ -1,38 +1,33 @@
 from flask import Flask, request, Response, jsonify
 import subprocess
-import tempfile
 import os
+import tempfile
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return "API yt-dlp OK"
-
 @app.route("/download", methods=["POST"])
 def download():
-    data = request.get_json()
+    data = request.json
+    video_id = data.get("videoId")
 
-    if not data or "videoId" not in data:
-        return jsonify({"error": "videoId manquant"}), 400
-
-    video_id = data["videoId"]
+    if not video_id:
+        return jsonify({"error": "videoId requis"}), 400
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        output_path = os.path.join(tmpdir, "%(title)s.%(ext)s")
+        output = os.path.join(tmpdir, "audio.mp3")
 
         command = [
             "yt-dlp",
             "-x",
             "--audio-format", "mp3",
-            "-o", output_path,
+            "--cookies", "/app/cookies.txt",
+            "-o", output,
             f"https://www.youtube.com/watch?v={video_id}"
         ]
 
         result = subprocess.run(
             command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True
         )
 
@@ -42,24 +37,17 @@ def download():
                 "details": result.stderr
             }), 500
 
-        # Récupérer le fichier généré
-        files = os.listdir(tmpdir)
-        if not files:
-            return jsonify({"error": "Fichier audio non généré"}), 500
-
-        file_path = os.path.join(tmpdir, files[0])
-
-        with open(file_path, "rb") as f:
-            audio_data = f.read()
+        with open(output, "rb") as f:
+            audio = f.read()
 
     return Response(
-        audio_data,
+        audio,
         mimetype="audio/mpeg",
         headers={
             "Content-Disposition": f'attachment; filename="{video_id}.mp3"'
         }
     )
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
+@app.route("/")
+def health():
+    return "API yt-dlp OK", 200
